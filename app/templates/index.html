@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media Notebook</title>
+    <title>Digital Culture Notebook</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
     <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
@@ -11,7 +11,18 @@
 <body>
 
 <div id="sidebar">
-    <h1>📓 Media Notebook</h1>
+    <h1>Digital Culture Notebook</h1>
+
+    <!-- Notebook selector -->
+    <div id="notebook-selector">
+        <div class="section-label">Notebook</div>
+        <div id="notebook-bar">
+            <select id="notebook-dropdown"></select>
+            <button onclick="addNotebook()" title="New notebook">+</button>
+            <button onclick="renameNotebook()" title="Rename notebook">✏</button>
+            <button onclick="deleteNotebook()" title="Delete notebook">✕</button>
+        </div>
+    </div>
 
     <div id="search-box">
         <input type="text" id="search-input" placeholder="Search notes & titles...">
@@ -30,8 +41,8 @@
     <!-- Welcome state -->
     <div id="welcome">
         <div class="empty-state">
-            <h3>Welcome to Media Notebook</h3>
-            <p>Create a chapter to get started, then add videos with notes.</p>
+            <h3>Welcome to Digital Culture Notebook</h3>
+            <p>Select a notebook, create a chapter, then add videos with notes.</p>
         </div>
     </div>
 

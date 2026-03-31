@@ -14,11 +14,19 @@ def get_db():
 def init_db():
     conn = get_db()
     conn.executescript("""
-        CREATE TABLE IF NOT EXISTS chapters (
+        CREATE TABLE IF NOT EXISTS notebooks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            notes TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS chapters (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            notebook_id INTEGER NOT NULL DEFAULT 1,
+            name TEXT NOT NULL,
+            notes TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (notebook_id) REFERENCES notebooks(id) ON DELETE CASCADE
         );
 
         CREATE TABLE IF NOT EXISTS entries (
@@ -33,11 +41,19 @@ def init_db():
             FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
         );
     """)
-    # Migrate: add notes column to chapters if missing
+
+    # Migrations for existing databases
     cursor = conn.execute("PRAGMA table_info(chapters)")
     columns = [row[1] for row in cursor.fetchall()]
     if "notes" not in columns:
         conn.execute("ALTER TABLE chapters ADD COLUMN notes TEXT DEFAULT ''")
+    if "notebook_id" not in columns:
+        conn.execute("ALTER TABLE chapters ADD COLUMN notebook_id INTEGER NOT NULL DEFAULT 1")
+
+    # Ensure at least one notebook exists
+    row = conn.execute("SELECT COUNT(*) as cnt FROM notebooks").fetchone()
+    if row["cnt"] == 0:
+        conn.execute("INSERT INTO notebooks (name) VALUES ('My Notebook')")
 
     conn.commit()
     conn.close()

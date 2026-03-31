@@ -20,10 +20,50 @@ body {
 }
 
 #sidebar h1 {
-    padding: 20px;
-    font-size: 18px;
+    padding: 16px 20px;
+    font-size: 16px;
     border-bottom: 1px solid #313244;
     color: #cba6f7;
+}
+
+/* Notebook selector */
+#notebook-selector {
+    padding: 0 12px 8px;
+    border-bottom: 1px solid #313244;
+}
+
+#notebook-bar {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+#notebook-bar select {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid #45475a;
+    border-radius: 6px;
+    background: #313244;
+    color: #cdd6f4;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+}
+
+#notebook-bar button {
+    background: none;
+    border: 1px solid #45475a;
+    border-radius: 6px;
+    color: #6c7086;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 5px 8px;
+    transition: color 0.15s;
+}
+
+#notebook-bar button:hover {
+    color: #cdd6f4;
+    border-color: #6c7086;
 }
 
 #sidebar .section-label {

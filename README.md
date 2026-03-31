@@ -2,13 +2,17 @@
 
 A personal media notebook web app for saving videos with rich-text notes — like Evernote, but for videos. Supports downloading from YouTube, TikTok, Instagram, and other platforms via yt-dlp.
 
+![Screenshot](screenshot.png)
+
 ## Features
 
-- **Chapters** — Organize content into named chapters, each with its own rich-text notes
+- **Notebooks** — Create multiple notebooks, each with its own set of chapters
+- **Chapters** — Organize content into named chapters within a notebook, each with its own rich-text notes
 - **Video Entries** — Paste a URL, download the video locally, and write notes alongside it
 - **Rich Text Editor** — Bold, italic, lists, and headings via Quill.js
 - **Search** — Keyword search across all notes and video titles
 - **HTML Export** — Export any chapter as a clean, readable standalone HTML page
+- **Organized File Storage** — Videos and notes saved in `media/Notebook_Name/Chapter_Name/` with clean filenames
 - **Fully Local** — No cloud, no accounts. Videos and notes stay on your machine
 
 ## Setup
@@ -45,13 +49,14 @@ If macOS blocks it on first run, right-click the app and choose **Open**, or go 
 
 ## Usage
 
-1. **Create a chapter** — Type a name in the sidebar and click **+**
-2. **Add chapter notes** — Use the rich-text editor at the top of each chapter for general notes
-3. **Add a video entry** — Paste a video URL (YouTube, TikTok, Instagram, etc.) and click **Download & Save**
-4. **Edit notes** — Each entry has its own rich-text editor; click **Save Notes** to persist
-5. **Search** — Use the search bar in the sidebar to find entries by title or note content
-6. **Export** — Click **Export HTML** to generate a clean, readable page for any chapter
-7. **Delete** — Remove entries with the **Delete** button, or delete entire chapters from the sidebar
+1. **Create a notebook** — Use the notebook dropdown at the top of the sidebar; click **+** to create, **✏** to rename, **✕** to delete
+2. **Create a chapter** — Type a name in the sidebar and click **+**
+3. **Add chapter notes** — Use the rich-text editor at the top of each chapter for general notes
+4. **Add a video entry** — Paste a video URL (YouTube, TikTok, Instagram, etc.) and click **Download & Save**
+5. **Edit notes** — Each entry has its own rich-text editor; click **Save Notes** to persist (also saved as a .txt file alongside the video)
+6. **Search** — Use the search bar in the sidebar to find entries by title or note content
+7. **Export** — Click **Export HTML** to generate a clean, readable page for any chapter
+8. **Delete** — Remove entries with the **Delete** button, or delete entire chapters from the sidebar
 
 ## Project Structure
 
@@ -62,7 +67,11 @@ app/
   downloader.py    # yt-dlp wrapper with browser cookie support
   templates/       # Jinja2 HTML templates
   static/          # CSS, JS, icon
-  media/           # Downloaded videos (git-ignored)
+  media/           # Downloaded videos and notes (git-ignored)
+    My_Notebook/
+      Chapter_1/
+        video_title.mp4
+        video_title.txt   # Notes saved alongside video
   notebook.db      # SQLite database (git-ignored)
 requirements.txt
 ```

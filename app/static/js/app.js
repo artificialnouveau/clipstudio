@@ -1,12 +1,86 @@
 const API = "";
+let currentNotebookId = null;
 let currentChapterId = null;
 let quillEditors = {};
 let chapterNotesQuill = null;
 
+// --- Notebook management ---
+
+async function loadNotebooks() {
+    const res = await fetch(`${API}/api/notebooks`);
+    const notebooks = await res.json();
+    const dropdown = document.getElementById("notebook-dropdown");
+    dropdown.innerHTML = "";
+    notebooks.forEach(nb => {
+        const opt = document.createElement("option");
+        opt.value = nb.id;
+        opt.textContent = nb.name;
+        if (nb.id === currentNotebookId) opt.selected = true;
+        dropdown.appendChild(opt);
+    });
+    if (!currentNotebookId && notebooks.length > 0) {
+        currentNotebookId = notebooks[0].id;
+        dropdown.value = currentNotebookId;
+    }
+    if (currentNotebookId) loadChapters();
+}
+
+function onNotebookChange(e) {
+    currentNotebookId = parseInt(e.target.value);
+    currentChapterId = null;
+    showWelcome();
+    loadChapters();
+}
+
+async function addNotebook() {
+    const name = prompt("New notebook name:");
+    if (!name) return;
+    const res = await fetch(`${API}/api/notebooks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+    });
+    const nb = await res.json();
+    currentNotebookId = nb.id;
+    currentChapterId = null;
+    showWelcome();
+    await loadNotebooks();
+}
+
+async function renameNotebook() {
+    if (!currentNotebookId) return;
+    const dropdown = document.getElementById("notebook-dropdown");
+    const currentName = dropdown.options[dropdown.selectedIndex]?.textContent || "";
+    const name = prompt("Rename notebook:", currentName);
+    if (!name) return;
+    await fetch(`${API}/api/notebooks/${currentNotebookId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+    });
+    await loadNotebooks();
+}
+
+async function deleteNotebook() {
+    if (!currentNotebookId) return;
+    if (!confirm("Delete this notebook and all its chapters/entries?")) return;
+    const res = await fetch(`${API}/api/notebooks/${currentNotebookId}`, { method: "DELETE" });
+    if (!res.ok) {
+        const err = await res.json();
+        alert(err.detail || "Cannot delete");
+        return;
+    }
+    currentNotebookId = null;
+    currentChapterId = null;
+    showWelcome();
+    await loadNotebooks();
+}
+
 // --- Chapter management ---
 
 async function loadChapters() {
-    const res = await fetch(`${API}/api/chapters`);
+    if (!currentNotebookId) return;
+    const res = await fetch(`${API}/api/notebooks/${currentNotebookId}/chapters`);
     const chapters = await res.json();
     const list = document.getElementById("chapter-list");
     list.innerHTML = "";
@@ -30,13 +104,14 @@ async function loadChapters() {
 }
 
 async function addChapter() {
+    if (!currentNotebookId) return;
     const input = document.getElementById("new-chapter-name");
     const name = input.value.trim();
     if (!name) return;
     await fetch(`${API}/api/chapters`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ notebook_id: currentNotebookId, name }),
     });
     input.value = "";
     await loadChapters();
@@ -81,14 +156,18 @@ async function selectChapter(id, name) {
     await loadEntries(id);
 }
 
+function showWelcome() {
+    document.getElementById("welcome").style.display = "block";
+    document.getElementById("chapter-view").style.display = "none";
+    document.getElementById("search-results").style.display = "none";
+}
+
 // --- Chapter notes ---
 
 async function loadChapterNotes(chapterId) {
     const res = await fetch(`${API}/api/chapters/${chapterId}`);
     const chapter = await res.json();
 
-    // Initialize or re-use Quill for chapter notes
-    const editorEl = document.getElementById("chapter-notes-editor");
     if (!chapterNotesQuill) {
         chapterNotesQuill = new Quill("#chapter-notes-editor", {
             theme: "snow",
@@ -119,12 +198,6 @@ async function saveChapterNotes() {
     setTimeout(() => {
         document.getElementById("chapter-notes-status").textContent = "";
     }, 2000);
-}
-
-function showWelcome() {
-    document.getElementById("welcome").style.display = "block";
-    document.getElementById("chapter-view").style.display = "none";
-    document.getElementById("search-results").style.display = "none";
 }
 
 // --- Entry management ---
@@ -172,7 +245,6 @@ function createEntryCard(entry) {
         </div>
     `;
 
-    // Initialize Quill after DOM insertion
     requestAnimationFrame(() => {
         const editorEl = document.getElementById(editorId);
         if (editorEl) {
@@ -265,7 +337,7 @@ function onSearch(e) {
     clearTimeout(searchTimeout);
     if (!q) {
         if (currentChapterId) {
-            document.getElementById("chapter-view").style.display = "block";
+            document.getElementById("chapter-view").style.display = "flex";
         } else {
             document.getElementById("welcome").style.display = "block";
         }
@@ -320,7 +392,9 @@ function escapeHtml(text) {
 // --- Init ---
 
 document.addEventListener("DOMContentLoaded", () => {
-    loadChapters();
+    loadNotebooks();
+
+    document.getElementById("notebook-dropdown").addEventListener("change", onNotebookChange);
 
     document.getElementById("new-chapter-name").addEventListener("keydown", (e) => {
         if (e.key === "Enter") addChapter();
