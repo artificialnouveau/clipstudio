@@ -1,0 +1,17 @@
+# Media files (downloaded videos and thumbnails)
+app/media/
+!app/media/.gitkeep
+
+# Database
+app/notebook.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
