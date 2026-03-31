@@ -1,6 +1,6 @@
 # Digital Culture Notebook
 
-A personal media notebook web app for saving videos with rich-text notes — like Evernote, but for videos. Supports downloading from YouTube, TikTok, Instagram, and other platforms via yt-dlp.
+A personal media notebook web app for saving videos with rich-text notes — like Evernote, but for videos. Supports downloading from YouTube, TikTok, Instagram, Facebook, and other platforms via yt-dlp.
 
 ![Screenshot](screenshot.png)
 
@@ -15,54 +15,58 @@ A personal media notebook web app for saving videos with rich-text notes — lik
 - **Organized File Storage** — Videos and notes saved in `media/Notebook_Name/Chapter_Name/` with clean filenames
 - **Fully Local** — No cloud, no accounts. Videos and notes stay on your machine
 
-## Setup
+## Quick Start
 
-### Requirements
+The easiest way to get started — clone the repo and run the launcher script. It creates a virtual environment, installs all dependencies (yt-dlp, whisper, etc.), and starts the app.
 
-- Python 3.10+
-- [ffmpeg](https://ffmpeg.org/) (required by yt-dlp and faster-whisper for audio/video processing)
-
-On macOS with Homebrew:
+**macOS / Linux:**
 ```bash
-brew install ffmpeg
+git clone https://github.com/artificialnouveau/digital_culture_notebook.git
+cd digital_culture_notebook
+./install_and_run.sh
 ```
 
-On Ubuntu/Debian:
+**Windows:**
 ```bash
-sudo apt install ffmpeg
-```
-
-### Install Python dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-This installs:
-- **fastapi** + **uvicorn** — Web server
-- **yt-dlp** — Video downloading (YouTube, TikTok, Instagram, etc.)
-- **faster-whisper** — Local speech-to-text transcription
-- **jinja2** — HTML templating
-- **python-multipart** — Form data handling
-
-### Run
-
-```bash
-cd app
-uvicorn main:app --reload --port 8080
+git clone https://github.com/artificialnouveau/digital_culture_notebook.git
+cd digital_culture_notebook
+install_and_run.bat
 ```
 
 Then open [http://localhost:8080](http://localhost:8080) in your browser.
 
-### macOS Desktop App (optional)
+### Prerequisites
 
-A `Media Notebook.app` can be placed on your Desktop to launch the server and open your browser with one click. To set it up:
+The only things you need installed beforehand:
 
-1. Copy the `Media Notebook.app` bundle to your Desktop (or Applications folder)
-2. Edit `Contents/MacOS/launch` and set `APP_DIR` to the full path of your `app/` folder
-3. Double-click to launch
+- **Python 3.10+** — [Download](https://www.python.org/downloads/) (on Windows, check "Add Python to PATH" during installation)
+- **ffmpeg** — Required for video processing and transcription
 
-If macOS blocks it on first run, right-click the app and choose **Open**, or go to **System Settings > Privacy & Security** and click **Open Anyway**.
+  macOS: `brew install ffmpeg`
+  Ubuntu/Debian: `sudo apt install ffmpeg`
+  Windows: [Download](https://ffmpeg.org/download.html) and add to PATH
+
+Everything else (FastAPI, yt-dlp, Whisper, etc.) is installed automatically by the launcher script.
+
+## Manual Setup
+
+If you prefer to install manually instead of using the launcher:
+
+```bash
+pip install -r requirements.txt
+cd app
+uvicorn main:app --port 8080
+```
+
+### What gets installed (requirements.txt)
+
+| Package | Purpose |
+|---------|---------|
+| **fastapi** + **uvicorn** | Web server |
+| **yt-dlp** | Video downloading (YouTube, TikTok, Instagram, Facebook, etc.) |
+| **faster-whisper** | Local speech-to-text transcription |
+| **jinja2** | HTML templating |
+| **python-multipart** | Form data handling |
 
 ## Usage
 
@@ -70,34 +74,49 @@ If macOS blocks it on first run, right-click the app and choose **Open**, or go 
 2. **Create a chapter** — Type a name in the sidebar and click **+**
 3. **Reorder chapters** — Hover to see ▲/▼ arrows, or drag and drop
 4. **Add chapter notes** — Use the rich-text editor at the top of each chapter for general notes
-5. **Add a video entry** — Paste a video URL (YouTube, TikTok, Instagram, etc.) and click **Download & Save**
+5. **Add a video entry** — Paste a video URL (YouTube, TikTok, Instagram, Facebook, etc.) and click **Download & Save**
 6. **Edit notes** — Each entry has its own rich-text editor; click **Save Notes** to persist (also saved as a .txt file alongside the video)
 7. **Transcribe** — Click **Transcribe** on an entry to generate a transcript, or **Transcribe All** in the toolbar to transcribe every entry in the chapter (skips already-transcribed ones)
 8. **Search** — Use the search bar in the sidebar to find entries by title or note content
 9. **Delete** — Remove entries with the **Delete** button, or delete entire chapters from the sidebar
 
+## Supported Platforms
+
+yt-dlp supports [1000+ sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md), including:
+- YouTube
+- TikTok
+- Instagram (Reels, posts)
+- Facebook (Reels, videos)
+- Twitter/X
+- Reddit
+- Vimeo
+- And many more
+
 ## Project Structure
 
 ```
-app/
-  main.py          # FastAPI backend (API + page serving)
-  database.py      # SQLite setup and migrations
-  downloader.py    # yt-dlp wrapper with browser cookie support
-  transcriber.py   # Whisper transcription wrapper
-  templates/       # Jinja2 HTML templates
-  static/          # CSS, JS, icon
-  media/           # Downloaded videos and notes (git-ignored)
-    My_Notebook/
-      Chapter_1/
-        video_title.mp4
-        video_title.txt   # Notes saved alongside video
-  notebook.db      # SQLite database (git-ignored)
-requirements.txt
+digital_culture_notebook/
+  install_and_run.sh   # One-click setup & launch (macOS/Linux)
+  install_and_run.bat  # One-click setup & launch (Windows)
+  requirements.txt     # Python dependencies
+  app/
+    main.py            # FastAPI backend (API + page serving)
+    database.py        # SQLite setup and migrations
+    downloader.py      # yt-dlp wrapper with browser cookie support
+    transcriber.py     # Whisper transcription wrapper
+    templates/         # Jinja2 HTML templates
+    static/            # CSS, JS, icon
+    media/             # Downloaded videos and notes (git-ignored)
+      My_Notebook/
+        Chapter_1/
+          video_title.mp4
+          video_title.txt   # Notes saved alongside video
+    notebook.db        # SQLite database (git-ignored)
 ```
 
 ## Notes
 
 - Videos are stored locally in `app/media/` and served by the backend
 - The database (`notebook.db`) is auto-created on first run
-- For age-restricted YouTube videos, the downloader attempts to use cookies from your browser (Chrome, Firefox, Safari)
+- For age-restricted or login-gated videos, the downloader attempts to use cookies from your browser (Chrome, Firefox, Safari)
 - Transcription uses the `base` Whisper model by default. The model is downloaded automatically on first use (~150MB). Edit `transcriber.py` to change the model size (e.g. `small`, `medium`, `large-v3` for higher accuracy)
