@@ -47,7 +47,16 @@ That's it! The script automatically installs everything (yt-dlp, Whisper, etc.) 
 > - **Mac:** Open Terminal and run `brew install ffmpeg` (requires [Homebrew](https://brew.sh))
 > - **Windows:** Download from [ffmpeg.org](https://ffmpeg.org/download.html) and [add it to PATH](https://www.wikihow.com/Install-FFmpeg-on-Windows)
 
-To stop the app, press `Ctrl+C` in the terminal window. To start it again later, just double-click the launcher file again.
+To stop the app, close the terminal window or press `Ctrl+C`.
+
+### Running it again later
+
+After the first install, use the quick launcher instead:
+
+- **Mac:** Double-click **`Digital Culture Notebook.command`**
+- **Windows:** Double-click **`Digital Culture Notebook.bat`**
+
+**Tip:** Drag this file to your Dock (Mac) or right-click and choose "Pin to Taskbar" / "Create shortcut on Desktop" (Windows) for easy access.
 
 ---
 
