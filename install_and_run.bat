@@ -9,9 +9,16 @@ echo.
 REM Check for Python
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: Python is not installed.
-    echo Download it from https://www.python.org/downloads/
-    echo Make sure to check "Add Python to PATH" during installation.
+    echo.
+    echo ERROR: Python 3 is not installed.
+    echo.
+    echo Please install Python first:
+    echo   1. Go to https://www.python.org/downloads/
+    echo   2. Download and install Python 3
+    echo   3. IMPORTANT: Check "Add Python to PATH" during installation
+    echo   4. Then double-click this file again
+    echo.
+    start https://www.python.org/downloads/
     pause
     exit /b 1
 )
@@ -20,9 +27,10 @@ REM Check for ffmpeg
 ffmpeg -version >nul 2>&1
 if errorlevel 1 (
     echo WARNING: ffmpeg is not installed (needed for video processing ^& transcription^).
-    echo Download from https://ffmpeg.org/download.html
     echo.
-    set /p choice="Continue without ffmpeg? [y/N] "
+    echo To install: download from https://ffmpeg.org/download.html
+    echo.
+    set /p choice="Continue without ffmpeg for now? [y/N] "
     if /i not "%choice%"=="y" exit /b 1
 )
 
@@ -46,10 +54,13 @@ pip install -r requirements.txt -q
 echo.
 echo ========================================
 echo   Starting Digital Culture Notebook
-echo   Open http://localhost:8080 in your browser
+echo   Opening browser...
 echo   Press Ctrl+C to stop
 echo ========================================
 echo.
+
+REM Open browser automatically
+start http://localhost:8080
 
 cd app
 python -m uvicorn main:app --host 0.0.0.0 --port 8080

@@ -17,53 +17,37 @@ A personal media notebook web app for saving videos with rich-text notes — lik
 
 ## Getting Started
 
-### Step 1: Install Prerequisites
+### Step 1: Install Python
 
-Before anything else, install these two things:
+If you don't have Python installed yet:
 
-1. **Python 3.10+** — Download and install from [python.org](https://www.python.org/downloads/)
-   - **Windows users:** During installation, make sure to check the box that says **"Add Python to PATH"**
-   - **Mac users:** Python 3 may already be installed. Open Terminal and type `python3 --version` to check
+1. Go to [python.org/downloads](https://www.python.org/downloads/)
+2. Download and install **Python 3.10 or newer**
+3. **Windows users:** During installation, check the box that says **"Add Python to PATH"** — this is important!
 
-2. **ffmpeg** — Needed for video processing and transcription
-   - **Mac:** Open Terminal and run: `brew install ffmpeg` (requires [Homebrew](https://brew.sh))
-   - **Windows:** Download from [ffmpeg.org](https://ffmpeg.org/download.html) and [add it to your PATH](https://www.wikihow.com/Install-FFmpeg-on-Windows)
-   - **Linux:** `sudo apt install ffmpeg`
+*(Mac users: Python 3 may already be installed. The launcher will tell you if it's missing.)*
 
 ### Step 2: Download the App
 
-1. Go to [the GitHub page](https://github.com/artificialnouveau/digital_culture_notebook)
-2. Click the green **"Code"** button
-3. Click **"Download ZIP"**
-4. Unzip the downloaded file somewhere on your computer (e.g. your Desktop or Documents folder)
+1. Click this link: [**Download ZIP**](https://github.com/artificialnouveau/digital_culture_notebook/archive/refs/heads/main.zip)
+2. Unzip the downloaded file (double-click it)
 
 ### Step 3: Run the App
 
-**Mac / Linux:**
-1. Open **Terminal**
-2. Drag the unzipped `digital_culture_notebook` folder into the Terminal window (this types the path for you)
-3. Type `cd ` (with a space) before the path, then press Enter
-4. Type `./install_and_run.sh` and press Enter
-
-Or copy-paste this (replace the path with where you unzipped it):
-```bash
-cd ~/Desktop/digital_culture_notebook
-./install_and_run.sh
-```
+**Mac:**
+- Open the unzipped folder and double-click **`install_and_run.command`**
+- If macOS says the file can't be opened: right-click it, choose **Open**, then click **Open** again
 
 **Windows:**
-1. Open the unzipped `digital_culture_notebook` folder
-2. Double-click **`install_and_run.bat`**
+- Open the unzipped folder and double-click **`install_and_run.bat`**
 
-The script will automatically install everything it needs (yt-dlp, Whisper, etc.) and start the app. This may take a few minutes the first time.
+That's it! The script automatically installs everything (yt-dlp, Whisper, etc.) and opens the app in your browser. The first launch takes a few minutes while dependencies install.
 
-### Step 4: Open the App
+> **Note:** If the script warns about **ffmpeg** missing, video downloading still works but transcription won't. To install ffmpeg:
+> - **Mac:** Open Terminal and run `brew install ffmpeg` (requires [Homebrew](https://brew.sh))
+> - **Windows:** Download from [ffmpeg.org](https://ffmpeg.org/download.html) and [add it to PATH](https://www.wikihow.com/Install-FFmpeg-on-Windows)
 
-Once the script says "Starting Digital Culture Notebook", open your browser and go to:
-
-**[http://localhost:8080](http://localhost:8080)**
-
-To stop the app, press `Ctrl+C` in the terminal window. To start it again later, just repeat Step 3.
+To stop the app, press `Ctrl+C` in the terminal window. To start it again later, just double-click the launcher file again.
 
 ---
 
