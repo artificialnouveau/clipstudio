@@ -67,7 +67,7 @@ async function deleteNotebook() {
     const res = await fetch(`${API}/api/notebooks/${currentNotebookId}`, { method: "DELETE" });
     if (!res.ok) {
         const err = await res.json();
-        alert(err.detail || "Cannot delete");
+        showToast(err.detail || "Cannot delete", "error");
         return;
     }
     currentNotebookId = null;
@@ -355,7 +355,7 @@ async function transcribeEntry(entryId) {
         const res = await fetch(`${API}/api/entries/${entryId}/transcribe`, { method: "POST" });
         if (!res.ok) {
             const err = await res.json();
-            alert("Transcription error: " + (err.detail || "Failed"));
+            showToast((err.detail || "Failed", "error"));
             return;
         }
         const entry = await res.json();
@@ -367,7 +367,7 @@ async function transcribeEntry(entryId) {
             section.style.display = "";
         }
     } catch (e) {
-        alert("Transcription error: " + e.message);
+        showToast(e.message, "error");
     } finally {
         btn.disabled = false;
         btn.textContent = "Transcribe";
@@ -418,7 +418,7 @@ async function transcribeAll() {
             }
         }
     } catch (e) {
-        alert("Error: " + e.message);
+        showToast(e.message, "error");
     } finally {
         btn.disabled = false;
         btn.textContent = "Transcribe All";
@@ -429,7 +429,7 @@ async function trimEntryVideo(entryId, videoPath) {
     const start = document.getElementById(`entry-trim-start-${entryId}`).value.trim();
     const end = document.getElementById(`entry-trim-end-${entryId}`).value.trim();
     if (!start && !end) {
-        alert("Enter at least a start or end timestamp.");
+        showToast("Enter at least a start or end timestamp.", "warning");
         return;
     }
     const btn = event.target;
@@ -443,16 +443,16 @@ async function trimEntryVideo(entryId, videoPath) {
         });
         if (!res.ok) {
             const err = await res.json();
-            alert("Trim failed: " + (err.detail || "Error"));
+            showToast((err.detail || "Error", "error"));
             return;
         }
         const data = await res.json();
         const timeLabel = `${start || "0:00"}\u2013${end || "end"}`;
-        alert(`Trim complete (${timeLabel}). A new entry has been created for the trimmed clip. The original video is unchanged.`);
+        showToast(`Trim complete (${timeLabel}). New entry created. Original unchanged.`, "success");
         // Reload entries to show the new trimmed entry
         await loadEntries(currentChapterId);
     } catch (e) {
-        alert("Trim error: " + e.message);
+        showToast(e.message, "error");
     } finally {
         btn.disabled = false;
         btn.textContent = "Trim";
@@ -496,7 +496,7 @@ async function addEntry() {
 
         if (!res.ok) {
             const err = await res.json();
-            alert("Error: " + (err.detail || "Download failed"));
+            showToast((err.detail || "Download failed", "error"));
             return;
         }
 
@@ -505,9 +505,9 @@ async function addEntry() {
         await loadEntries(currentChapterId);
     } catch (e) {
         if (e.name === "AbortError") {
-            alert("Download timed out (10 min). The video may still be downloading on the server — try refreshing the page in a minute.");
+            showToast("Download timed out. The video may still be downloading — try refreshing in a minute.", "warning");
         } else {
-            alert("Error: " + e.message);
+            showToast(e.message, "error");
         }
     } finally {
         btn.disabled = false;
@@ -703,7 +703,7 @@ async function startBulkDownload() {
     const progress = document.getElementById("bulk-progress");
 
     if (!folder || !urlsText) {
-        alert("Please enter a folder name and at least one URL.");
+        showToast("Please enter a folder name and at least one URL.", "warning");
         return;
     }
 
@@ -781,7 +781,7 @@ async function trimBulkVideo(idx, videoPath) {
     const end = document.getElementById(`trim-end-${idx}`).value.trim();
 
     if (!start && !end) {
-        alert("Enter at least a start or end timestamp.");
+        showToast("Enter at least a start or end timestamp.", "warning");
         return;
     }
 
@@ -797,17 +797,17 @@ async function trimBulkVideo(idx, videoPath) {
         });
         if (!res.ok) {
             const err = await res.json();
-            alert("Trim failed: " + (err.detail || "Error"));
+            showToast((err.detail || "Error", "error"));
             return;
         }
         const timeLabel = `${start || "0:00"}\u2013${end || "end"}`;
-        alert(`Trim complete (${timeLabel}). The trimmed clip has been saved. The original video is unchanged.`);
+        showToast(`Trim complete (${timeLabel}). Clip saved. Original unchanged.`, "success");
         // Reload folder to show the new trimmed file
         if (currentBulkFolder) {
             await openBulkFolder(currentBulkFolder);
         }
     } catch (e) {
-        alert("Trim error: " + e.message);
+        showToast(e.message, "error");
     } finally {
         btn.disabled = false;
         btn.textContent = "Trim";
@@ -827,7 +827,7 @@ async function transcribeBulkVideo(idx, videoPath) {
         });
         if (!res.ok) {
             const err = await res.json();
-            alert("Transcription failed: " + (err.detail || "Error"));
+            showToast((err.detail || "Error", "error"));
             return;
         }
         const data = await res.json();
@@ -841,7 +841,7 @@ async function transcribeBulkVideo(idx, videoPath) {
             btn.disabled = true;
         }
     } catch (e) {
-        alert("Error: " + e.message);
+        showToast(e.message, "error");
     } finally {
         if (btn && !btn.disabled) {
             btn.disabled = false;
@@ -882,6 +882,26 @@ function escapeHtml(text) {
     const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
+}
+
+function showToast(message, type = "info") {
+    let container = document.getElementById("toast-container");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "toast-container";
+        container.style.cssText = "position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:420px;";
+        document.body.appendChild(container);
+    }
+    const colors = { info: "#333", success: "#16a34a", error: "#ef4444", warning: "#d97706" };
+    const toast = document.createElement("div");
+    toast.style.cssText = `background:${colors[type] || colors.info};color:#fff;padding:12px 16px;border-radius:8px;font-size:13px;line-height:1.4;box-shadow:0 4px 12px rgba(0,0,0,0.2);opacity:0;transition:opacity 0.3s;word-break:break-word;`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    requestAnimationFrame(() => toast.style.opacity = "1");
+    setTimeout(() => {
+        toast.style.opacity = "0";
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
 }
 
 // --- Scene Splitting ---
@@ -1125,15 +1145,15 @@ async function _splitScenes(entryId, sceneList, btn) {
         });
         if (!res.ok) {
             const err = await res.json();
-            alert("Split failed: " + (err.detail || "Error"));
+            showToast((err.detail || "Error", "error"));
             return;
         }
         const data = await res.json();
-        alert(`Done! ${data.entries.length} scene(s) saved as new entries.`);
+        showToast(`Done! ${data.entries.length} scene(s) saved as new entries.`, "success");
         closeSceneModal();
         if (currentChapterId) await loadEntries(currentChapterId);
     } catch (e) {
-        alert("Error: " + e.message);
+        showToast(e.message, "error");
     } finally {
         btn.disabled = false;
         btn.textContent = origText;
@@ -1148,7 +1168,7 @@ async function saveSelectedScenes(entryId, videoPath) {
         const i = parseInt(cb.dataset.index);
         return { start: formatTime(scenes[i].start), end: formatTime(scenes[i].end) };
     });
-    if (selected.length === 0) { alert("Select at least one scene."); return; }
+    if (selected.length === 0) { showToast("Select at least one scene.", "warning"); return; }
     await _splitScenes(entryId, selected, event.target);
 }
 
@@ -1426,6 +1446,18 @@ async function ragSearchBulk() {
     });
 }
 
+function clearRagSearch() {
+    document.getElementById("rag-search-input").value = "";
+    document.getElementById("rag-search-status").textContent = "";
+    document.getElementById("rag-search-results").innerHTML = "";
+}
+
+function clearBulkRagSearch() {
+    document.getElementById("bulk-rag-input").value = "";
+    document.getElementById("bulk-rag-status").textContent = "";
+    document.getElementById("bulk-rag-results").innerHTML = "";
+}
+
 async function ragTrimAndSave(entryId, videoPath, start, end, btn) {
     const origText = btn.innerHTML;
     btn.disabled = true;
@@ -1438,15 +1470,15 @@ async function ragTrimAndSave(entryId, videoPath, start, end, btn) {
         });
         if (!res.ok) {
             const err = await res.json();
-            alert("Trim failed: " + (err.detail || "Error"));
+            showToast((err.detail || "Error", "error"));
             return;
         }
         const data = await res.json();
         const fullPath = `app/media/${data.video_path}`;
-        alert(`Trimmed clip saved!\n\nFile: ${fullPath}`);
+        showToast(`Trimmed clip saved: ${fullPath}`, "success");
         if (currentChapterId) await loadEntries(currentChapterId);
     } catch (e) {
-        alert("Error: " + e.message);
+        showToast(e.message, "error");
     } finally {
         btn.disabled = false;
         btn.innerHTML = origText;
