@@ -726,6 +726,42 @@ def get_bulk_index(folder_name: str):
     return FileResponse(index_path, media_type="application/json")
 
 
+@app.get("/api/indexes")
+def list_all_indexes():
+    """List all available search indexes (chapters and bulk folders)."""
+    from downloader import sanitize_name
+    indexes = []
+
+    db = get_db()
+    notebooks = db.execute("SELECT * FROM notebooks").fetchall()
+    for nb in notebooks:
+        chapters = db.execute("SELECT * FROM chapters WHERE notebook_id = ?", (nb["id"],)).fetchall()
+        for ch in chapters:
+            index_path = os.path.join(MEDIA_DIR, sanitize_name(nb["name"]), sanitize_name(ch["name"]), "index.json")
+            if os.path.isfile(index_path):
+                indexes.append({
+                    "type": "chapter",
+                    "name": f"{nb['name']} / {ch['name']}",
+                    "chapter_id": ch["id"],
+                    "url": f"/api/chapters/{ch['id']}/index",
+                })
+    db.close()
+
+    downloads_dir = os.path.join(MEDIA_DIR, "Downloads")
+    if os.path.isdir(downloads_dir):
+        for name in sorted(os.listdir(downloads_dir)):
+            index_path = os.path.join(downloads_dir, name, "index.json")
+            if os.path.isfile(index_path):
+                indexes.append({
+                    "type": "bulk",
+                    "name": f"Downloads / {name.replace('_', ' ')}",
+                    "folder_name": name,
+                    "url": f"/api/bulk/folders/{name}/index",
+                })
+
+    return indexes
+
+
 # --- HTML Export ---
 
 @app.get("/api/chapters/{chapter_id}/export")

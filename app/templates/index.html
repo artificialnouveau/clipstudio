@@ -75,6 +75,12 @@
             <div id="rag-search-section" style="display:none;background:#fff;border-radius:10px;padding:20px;margin-bottom:24px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
                 <h3 style="font-size:15px;margin-bottom:4px;">Semantic Search</h3>
                 <p style="font-size:11px;color:#999;margin-bottom:10px;">First click "Transcribe All" to generate transcripts, then click "Build Index for RAG" to create the search index. Rebuild after adding or transcribing new videos. Score ranges from 0 to 1 — closer to 1 = more semantically related. Above 0.3 is a strong match, 0.15–0.3 is related.</p>
+                <div style="margin-bottom:8px;">
+                    <label style="font-size:12px;color:#666;">Search index:</label>
+                    <select id="rag-index-select" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;outline:none;width:100%;" onchange="onRagIndexChange()">
+                        <option value="">Current chapter</option>
+                    </select>
+                </div>
                 <div style="display:flex;gap:8px;">
                     <input type="text" id="rag-search-input" placeholder="Search by meaning... e.g. &quot;protest movements&quot;" style="flex:1;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;outline:none;">
                     <button class="btn btn-primary" id="rag-search-btn" onclick="ragSearch()">Search</button>

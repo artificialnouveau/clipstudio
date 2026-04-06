@@ -190,6 +190,9 @@ async function deleteChapter(id, event) {
 }
 
 async function selectChapter(id, name) {
+    // Save current chapter's RAG state before switching
+    if (currentChapterId) saveRagState(`chapter_${currentChapterId}`);
+
     currentChapterId = id;
     document.querySelectorAll("#chapter-list li").forEach(li => {
         li.classList.toggle("active", parseInt(li.dataset.id) === id);
@@ -199,9 +202,22 @@ async function selectChapter(id, name) {
     document.getElementById("chapter-view").style.display = "flex";
     document.getElementById("search-results").style.display = "none";
     document.getElementById("bulk-view").style.display = "none";
+
+    // Clear download progress (not persistent)
+    const progressEl = document.getElementById("entry-download-progress");
+    if (progressEl) progressEl.innerHTML = "";
+
     await loadChapterNotes(id);
     await loadEntries(id);
-    await loadChapterRagIndex();
+    await loadAllIndexes();
+
+    // Restore cached RAG state or load fresh
+    if (!restoreRagState(`chapter_${id}`)) {
+        ragIndexData = null;
+        document.getElementById("rag-search-section").style.display = "none";
+        clearRagSearch();
+        await loadChapterRagIndex();
+    }
 }
 
 function showWelcome() {
@@ -599,6 +615,9 @@ async function doSearch(q) {
 let currentBulkFolder = null;
 
 function showBulkDownload() {
+    // Save current chapter RAG state
+    if (currentChapterId) saveRagState(`chapter_${currentChapterId}`);
+
     document.getElementById("welcome").style.display = "none";
     document.getElementById("chapter-view").style.display = "none";
     document.getElementById("search-results").style.display = "none";
@@ -607,6 +626,7 @@ function showBulkDownload() {
     document.getElementById("bulk-view").style.flex = "1";
     document.getElementById("bulk-view").style.overflow = "hidden";
     currentChapterId = null;
+    ragIndexData = null;
     document.querySelectorAll("#chapter-list li").forEach(li => li.classList.remove("active"));
     loadBulkFolders();
 }
@@ -1191,6 +1211,39 @@ async function saveSingleScene(entryId, videoPath, index) {
 let ragTextModel = null;
 let ragIndexData = null;
 let ragIndexType = null; // "chapter" or "bulk"
+let allAvailableIndexes = [];
+
+// Cache RAG state per chapter/folder so switching back restores it
+const ragStateCache = {}; // key: "chapter_<id>" or "bulk_<folder>" -> { query, statusHtml, resultsHtml, indexData }
+
+function saveRagState(key) {
+    const queryEl = document.getElementById("rag-search-input");
+    const statusEl = document.getElementById("rag-search-status");
+    const resultsEl = document.getElementById("rag-search-results");
+    if (!queryEl) return;
+    ragStateCache[key] = {
+        query: queryEl.value,
+        statusHtml: statusEl ? statusEl.innerHTML : "",
+        resultsHtml: resultsEl ? resultsEl.innerHTML : "",
+        indexData: ragIndexData,
+        visible: document.getElementById("rag-search-section").style.display !== "none",
+    };
+}
+
+function restoreRagState(key) {
+    const cached = ragStateCache[key];
+    if (!cached) return false;
+    const queryEl = document.getElementById("rag-search-input");
+    const statusEl = document.getElementById("rag-search-status");
+    const resultsEl = document.getElementById("rag-search-results");
+    const section = document.getElementById("rag-search-section");
+    if (queryEl) queryEl.value = cached.query;
+    if (statusEl) statusEl.innerHTML = cached.statusHtml;
+    if (resultsEl) resultsEl.innerHTML = cached.resultsHtml;
+    if (section) section.style.display = cached.visible ? "block" : "none";
+    ragIndexData = cached.indexData;
+    return true;
+}
 
 async function loadTransformersModel() {
     if (ragTextModel) return;
@@ -1245,6 +1298,7 @@ async function buildChapterIndex() {
         }
         const data = await res.json();
         resultsEl.innerHTML = `<div style="color:#16a34a;font-size:13px;">Index built! ${data.videos} videos, ${data.chunks} text chunks indexed. You can now search above.</div>`;
+        await loadAllIndexes();
         await loadChapterRagIndex();
     } catch (e) {
         if (e.name === "AbortError") {
@@ -1258,7 +1312,53 @@ async function buildChapterIndex() {
     }
 }
 
+async function loadAllIndexes() {
+    try {
+        const res = await fetch(`${API}/api/indexes`);
+        if (res.ok) allAvailableIndexes = await res.json();
+    } catch (e) { allAvailableIndexes = []; }
+
+    // Populate the dropdown
+    const select = document.getElementById("rag-index-select");
+    if (!select) return;
+    select.innerHTML = '<option value="">Current chapter</option>';
+    allAvailableIndexes.forEach((idx, i) => {
+        const opt = document.createElement("option");
+        opt.value = idx.url;
+        opt.textContent = idx.name;
+        if (idx.type === "chapter" && idx.chapter_id === currentChapterId) {
+            opt.selected = true;
+        }
+        select.appendChild(opt);
+    });
+
+    // Show RAG section if any indexes exist
+    if (allAvailableIndexes.length > 0) {
+        document.getElementById("rag-search-section").style.display = "block";
+    }
+}
+
+async function onRagIndexChange() {
+    const select = document.getElementById("rag-index-select");
+    const url = select.value;
+    clearRagSearch();
+    if (!url) {
+        // Load current chapter index
+        await loadChapterRagIndex();
+        return;
+    }
+    try {
+        const res = await fetch(url);
+        if (res.ok) {
+            ragIndexData = await res.json();
+            ragIndexType = "selected";
+            document.getElementById("rag-search-section").style.display = "block";
+        }
+    } catch (e) { ragIndexData = null; }
+}
+
 async function loadChapterRagIndex() {
+    if (!currentChapterId) return;
     try {
         const res = await fetch(`${API}/api/chapters/${currentChapterId}/index`);
         if (res.ok) {
