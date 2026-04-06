@@ -62,6 +62,16 @@ class SceneSplitRequest(BaseModel):
     scenes: list[SceneRange]
 
 
+def _parse_ts(ts_str: str) -> float:
+    """Parse a timestamp string like '1:23' or '1:02:03' into seconds."""
+    parts = ts_str.split(":")
+    if len(parts) == 3:
+        return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+    elif len(parts) == 2:
+        return int(parts[0]) * 60 + int(parts[1])
+    return 0
+
+
 # --- Media serving ---
 
 @app.get("/media/{filepath:path}")
@@ -517,22 +527,61 @@ def build_chapter_index(chapter_id: int):
             "video_path": e["video_path"],
             "source_url": e["source_url"] or "",
         }
-        # Add transcript chunks
+        # Add transcript chunks with timestamps
         transcript = e.get("transcript") or ""
         if transcript:
-            # Split transcript into ~200 word chunks with overlap
-            words = transcript.split()
-            chunk_size = 200
-            overlap = 50
-            for i in range(0, len(words), chunk_size - overlap):
-                chunk_text = " ".join(words[i:i + chunk_size])
-                if chunk_text.strip():
+            import re as _re
+            # Parse timestamped lines: [0:00 - 0:30] text
+            ts_pattern = _re.compile(r'\[(\d+:?\d*:\d+)\s*-\s*(\d+:?\d*:\d+)\]\s*(.*)')
+            segments = []
+            for line in transcript.split("\n"):
+                m = ts_pattern.match(line.strip())
+                if m:
+                    segments.append({"start": _parse_ts(m.group(1)), "end": _parse_ts(m.group(2)), "text": m.group(3)})
+
+            if segments:
+                # Group segments into ~30-second chunks
+                chunk_segs = []
+                chunk_start = segments[0]["start"]
+                chunk_texts = []
+                for seg in segments:
+                    chunk_texts.append(seg["text"])
+                    if seg["end"] - chunk_start >= 30:
+                        chunks.append({
+                            "id": f"{vid}_t_{len(chunks)}",
+                            "text": " ".join(chunk_texts),
+                            "video_id": vid,
+                            "type": "transcript",
+                            "start": round(chunk_start, 1),
+                            "end": round(seg["end"], 1),
+                        })
+                        chunk_texts = []
+                        chunk_start = seg["end"]
+                if chunk_texts:
                     chunks.append({
-                        "id": f"{vid}_t_{i}",
-                        "text": chunk_text,
+                        "id": f"{vid}_t_{len(chunks)}",
+                        "text": " ".join(chunk_texts),
                         "video_id": vid,
                         "type": "transcript",
+                        "start": round(chunk_start, 1),
+                        "end": round(segments[-1]["end"], 1),
                     })
+            else:
+                # Fallback for plain text transcripts (no timestamps)
+                words = transcript.split()
+                chunk_size = 200
+                overlap = 50
+                for i in range(0, len(words), chunk_size - overlap):
+                    chunk_text = " ".join(words[i:i + chunk_size])
+                    if chunk_text.strip():
+                        chunks.append({
+                            "id": f"{vid}_t_{i}",
+                            "text": chunk_text,
+                            "video_id": vid,
+                            "type": "transcript",
+                            "start": 0,
+                            "end": 0,
+                        })
         # Add notes as a chunk
         notes = e.get("notes") or ""
         # Strip HTML tags from notes
@@ -561,7 +610,7 @@ def build_chapter_index(chapter_id: int):
         "text_chunks": {
             "ids": [c["id"] for c in chunks],
             "documents": texts,
-            "metadatas": [{"video_id": c["video_id"], "type": c["type"]} for c in chunks],
+            "metadatas": [{"video_id": c["video_id"], "type": c["type"], "start": c.get("start", 0), "end": c.get("end", 0)} for c in chunks],
             "embeddings": embeddings,
         },
     }
@@ -633,7 +682,7 @@ def build_bulk_index(folder_name: str):
         "text_chunks": {
             "ids": [c["id"] for c in chunks],
             "documents": texts,
-            "metadatas": [{"video_id": c["video_id"], "type": c["type"]} for c in chunks],
+            "metadatas": [{"video_id": c["video_id"], "type": c["type"], "start": c.get("start", 0), "end": c.get("end", 0)} for c in chunks],
             "embeddings": embeddings,
         },
     }

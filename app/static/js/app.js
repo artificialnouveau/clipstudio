@@ -1273,27 +1273,39 @@ async function ragSearch() {
     scored.sort((a, b) => b.score - a.score);
     const results = scored.filter(r => r.score >= 0.15).slice(0, 10);
 
-    statusEl.textContent = results.length ? `${results.length} result(s) found` : "No relevant results.";
+    statusEl.innerHTML = results.length
+        ? `${results.length} result(s) found. <span style="font-size:11px;color:#999;">Score ranges from 0 to 1. Closer to 1 = more semantically related to your query. Above 0.3 is a strong match, 0.15\u20130.3 is related.</span>`
+        : "No relevant results.";
     resultsEl.innerHTML = "";
 
     results.forEach(r => {
         const vid = ragIndexData.videos[r.metadata.video_id];
         const card = document.createElement("div");
-        card.style.cssText = "padding:10px;border:1px solid #e0e0e0;border-radius:6px;margin-bottom:8px;cursor:pointer;transition:border-color 0.15s;";
+        card.style.cssText = "padding:10px;border:1px solid #e0e0e0;border-radius:6px;margin-bottom:8px;transition:border-color 0.15s;";
         card.onmouseenter = () => card.style.borderColor = "#7c3aed";
         card.onmouseleave = () => card.style.borderColor = "#e0e0e0";
 
         const score = r.score >= 0.3 ? "strong" : "related";
         const scoreColor = r.score >= 0.3 ? "#16a34a" : "#d97706";
+        const hasTime = r.metadata.start || r.metadata.end;
+        const timeLabel = hasTime ? `${formatTime(r.metadata.start)} \u2013 ${formatTime(r.metadata.end)}` : "";
+        const videoPath = vid ? vid.video_path : "";
+        const entryId = r.metadata.video_id;
+
         card.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                 <strong style="font-size:13px;">${escapeHtml(vid ? vid.title : "Unknown")}</strong>
                 <span style="font-size:11px;font-weight:600;color:${scoreColor};">${score} (${r.score.toFixed(3)})</span>
             </div>
+            ${timeLabel ? `<div style="font-size:11px;color:#7c3aed;margin-bottom:4px;">${timeLabel}</div>` : ""}
             <div style="font-size:12px;color:#666;line-height:1.4;max-height:60px;overflow:hidden;">${escapeHtml(r.text.substring(0, 300))}</div>
-            <div style="font-size:11px;color:#999;margin-top:4px;">${r.metadata.type}</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+                <span style="font-size:11px;color:#999;">${r.metadata.type}</span>
+                ${hasTime && videoPath ? `<button class="btn btn-secondary" style="font-size:11px;padding:3px 8px;" onclick="event.stopPropagation(); ragTrimAndSave(${entryId}, '${videoPath}', '${formatTime(r.metadata.start)}', '${formatTime(r.metadata.end)}', this)">Trim &amp; Save</button>` : ""}
+            </div>
         `;
         if (vid && vid.video_path) {
+            card.style.cursor = "pointer";
             card.onclick = () => {
                 const videoEl = document.querySelector(`[data-id="${r.metadata.video_id}"]`);
                 if (videoEl) videoEl.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1386,7 +1398,9 @@ async function ragSearchBulk() {
     scored.sort((a, b) => b.score - a.score);
     const results = scored.filter(r => r.score >= 0.15).slice(0, 10);
 
-    statusEl.textContent = results.length ? `${results.length} result(s) found` : "No relevant results.";
+    statusEl.innerHTML = results.length
+        ? `${results.length} result(s) found. <span style="font-size:11px;color:#999;">Score: 0\u20131. Closer to 1 = more related.</span>`
+        : "No relevant results.";
     resultsEl.innerHTML = "";
 
     results.forEach(r => {
@@ -1395,15 +1409,48 @@ async function ragSearchBulk() {
         card.style.cssText = "padding:10px;background:#fff;border:1px solid #e0e0e0;border-radius:6px;margin-bottom:8px;";
         const score = r.score >= 0.3 ? "strong" : "related";
         const scoreColor = r.score >= 0.3 ? "#16a34a" : "#d97706";
+        const hasTime = r.metadata.start || r.metadata.end;
+        const timeLabel = hasTime ? `${formatTime(r.metadata.start)} \u2013 ${formatTime(r.metadata.end)}` : "";
+        const videoPath = vid ? vid.video_path : "";
+
         card.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                 <strong style="font-size:13px;">${escapeHtml(vid ? vid.title : "Unknown")}</strong>
                 <span style="font-size:11px;font-weight:600;color:${scoreColor};">${score} (${r.score.toFixed(3)})</span>
             </div>
+            ${timeLabel ? `<div style="font-size:11px;color:#7c3aed;margin-bottom:4px;">${timeLabel}</div>` : ""}
             <div style="font-size:12px;color:#666;line-height:1.4;max-height:60px;overflow:hidden;">${escapeHtml(r.text.substring(0, 300))}</div>
+            ${hasTime && videoPath ? `<div style="margin-top:6px;"><button class="btn btn-secondary" style="font-size:11px;padding:3px 8px;" onclick="ragTrimAndSave(0, '${videoPath}', '${formatTime(r.metadata.start)}', '${formatTime(r.metadata.end)}', this)">Trim &amp; Save</button></div>` : ""}
         `;
         resultsEl.appendChild(card);
     });
+}
+
+async function ragTrimAndSave(entryId, videoPath, start, end, btn) {
+    const origText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = 'Trimming...<span class="loading"></span>';
+    try {
+        const res = await fetch(`${API}/api/trim`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ video_path: videoPath, start, end, entry_id: entryId || null }),
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            alert("Trim failed: " + (err.detail || "Error"));
+            return;
+        }
+        const data = await res.json();
+        const fullPath = `app/media/${data.video_path}`;
+        alert(`Trimmed clip saved!\n\nFile: ${fullPath}`);
+        if (currentChapterId) await loadEntries(currentChapterId);
+    } catch (e) {
+        alert("Error: " + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = origText;
+    }
 }
 
 // --- Init ---
