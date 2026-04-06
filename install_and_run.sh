@@ -1,9 +1,9 @@
 #!/bin/bash
-# Digital Culture Notebook — Install & Run (macOS / Linux)
+# MediaScope — Install & Run (macOS / Linux)
 set -e
 
 echo "========================================"
-echo "  Digital Culture Notebook — Setup"
+echo "  MediaScope — Setup"
 echo "========================================"
 echo ""
 
@@ -58,7 +58,7 @@ pip install -r requirements.txt -q
 
 echo ""
 echo "========================================"
-echo "  Starting Digital Culture Notebook"
+echo "  Starting MediaScope"
 echo "  Open http://localhost:8080 in your browser"
 echo "  Press Ctrl+C to stop"
 echo "========================================"

@@ -1,8 +1,8 @@
 @echo off
-REM Digital Culture Notebook — Install & Run (Windows)
+REM MediaScope — Install & Run (Windows)
 
 echo ========================================
-echo   Digital Culture Notebook — Setup
+echo   MediaScope — Setup
 echo ========================================
 echo.
 
@@ -53,7 +53,7 @@ pip install -r requirements.txt -q
 
 echo.
 echo ========================================
-echo   Starting Digital Culture Notebook
+echo   Starting MediaScope
 echo   Opening browser...
 echo   Press Ctrl+C to stop
 echo ========================================

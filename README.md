@@ -1,4 +1,4 @@
-# Digital Culture Notebook
+# MediaScope
 
 A personal media notebook web app for saving videos with rich-text notes — like Evernote, but for videos. Supports downloading from YouTube, TikTok, Instagram, Facebook, and other platforms via yt-dlp.
 
@@ -30,7 +30,7 @@ A personal media notebook web app for saving videos with rich-text notes — lik
 
 The script installs everything (including Homebrew + ffmpeg on Mac) and opens the app. First launch takes a few minutes.
 
-After first install, use **`Digital Culture Notebook.command`** (Mac) or **`.bat`** (Windows) for quick launch.
+After first install, use **`MediaScope.command`** (Mac) or **`.bat`** (Windows) for quick launch.
 
 ---
 
