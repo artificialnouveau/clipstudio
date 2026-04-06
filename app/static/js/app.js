@@ -328,7 +328,6 @@ function createEntryCard(entry) {
                 <div class="entry-actions">
                     <button class="btn btn-primary" onclick="saveNotes(${entry.id})">Save Notes</button>
                     <button class="btn btn-secondary" id="transcribe-btn-${entry.id}" onclick="transcribeEntry(${entry.id})">Transcribe</button>
-                    <button class="btn btn-secondary diarize-btn" id="diarize-btn-${entry.id}" onclick="transcribeEntry(${entry.id}, true)" style="display:none;">Transcribe with Speakers</button>
                     ${entry.video_path ? `<button class="btn btn-secondary" onclick="openSceneSplitter(${entry.id}, '${entry.video_path}')">Split Scenes</button>` : ""}
                     <button class="btn btn-danger" onclick="deleteEntry(${entry.id})">Delete</button>
                 </div>
@@ -363,15 +362,13 @@ function createEntryCard(entry) {
     return card;
 }
 
-async function transcribeEntry(entryId, diarize = false) {
-    const btn = document.getElementById(diarize ? `diarize-btn-${entryId}` : `transcribe-btn-${entryId}`);
-    const origText = btn.textContent;
+async function transcribeEntry(entryId) {
+    const btn = document.getElementById(`transcribe-btn-${entryId}`);
     btn.disabled = true;
-    btn.innerHTML = diarize ? 'Identifying speakers...<span class="loading"></span>' : 'Transcribing...<span class="loading"></span>';
+    btn.innerHTML = 'Transcribing...<span class="loading"></span>';
 
     try {
-        const url = `${API}/api/entries/${entryId}/transcribe` + (diarize ? "?diarize=true" : "");
-        const res = await fetch(url, { method: "POST" });
+        const res = await fetch(`${API}/api/entries/${entryId}/transcribe`, { method: "POST" });
         if (!res.ok) {
             const err = await res.json();
             showToast(err.detail || "Failed", "error");
@@ -384,12 +381,11 @@ async function transcribeEntry(entryId, diarize = false) {
             body.textContent = entry.transcript || "";
             section.style.display = "";
         }
-        if (diarize) showToast("Transcription with speaker labels complete", "success");
     } catch (e) {
         showToast(e.message, "error");
     } finally {
         btn.disabled = false;
-        btn.textContent = origText;
+        btn.textContent = "Transcribe";
     }
 }
 
@@ -1611,34 +1607,8 @@ async function ragTrimAndSave(entryId, videoPath, start, end, btn) {
 
 // --- Init ---
 
-let diarizationAvailable = false;
-
-async function checkFeatures() {
-    try {
-        const res = await fetch(`${API}/api/features`);
-        if (res.ok) {
-            const features = await res.json();
-            diarizationAvailable = features.diarization;
-        }
-    } catch (e) { /* ignore */ }
-    // Show/hide all diarize buttons
-    document.querySelectorAll(".diarize-btn").forEach(btn => {
-        btn.style.display = diarizationAvailable ? "" : "none";
-    });
-}
-
-// Re-check diarize buttons after entries load (since they're dynamically created)
-const origLoadEntries = loadEntries;
-loadEntries = async function(chapterId) {
-    await origLoadEntries(chapterId);
-    if (diarizationAvailable) {
-        document.querySelectorAll(".diarize-btn").forEach(btn => btn.style.display = "");
-    }
-};
-
 document.addEventListener("DOMContentLoaded", () => {
     loadNotebooks();
-    checkFeatures();
 
     document.getElementById("notebook-dropdown").addEventListener("change", onNotebookChange);
 

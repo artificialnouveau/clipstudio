@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from database import get_db, init_db
 from downloader import download_video, download_video_to_folder, trim_video, save_notes_file, MEDIA_DIR, _find_ffmpeg
-from transcriber import transcribe_video, is_diarization_available
+from transcriber import transcribe_video
 
 app = FastAPI()
 
@@ -278,14 +278,8 @@ def update_notes(entry_id: int, data: NoteUpdate):
     return dict(row)
 
 
-@app.get("/api/features")
-def get_features():
-    """Return which optional features are available."""
-    return {"diarization": is_diarization_available()}
-
-
 @app.post("/api/entries/{entry_id}/transcribe")
-def transcribe_entry(entry_id: int, diarize: bool = False):
+def transcribe_entry(entry_id: int):
     db = get_db()
     row = db.execute("SELECT * FROM entries WHERE id = ?", (entry_id,)).fetchone()
     db.close()
@@ -294,12 +288,12 @@ def transcribe_entry(entry_id: int, diarize: bool = False):
     if not row["video_path"]:
         raise HTTPException(400, "No video to transcribe")
 
-    # Skip if already transcribed (unless re-transcribing with diarization)
-    if row["transcript"] and not diarize:
+    # Skip if already transcribed
+    if row["transcript"]:
         return dict(row)
 
     try:
-        transcript = transcribe_video(row["video_path"], diarize=diarize)
+        transcript = transcribe_video(row["video_path"])
     except Exception as e:
         raise HTTPException(500, f"Transcription failed: {e}")
 

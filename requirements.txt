@@ -5,5 +5,3 @@ jinja2
 python-multipart
 faster-whisper
 sentence-transformers
-# Optional: speaker diarization (requires HuggingFace token)
-# pip install pyannote.audio
