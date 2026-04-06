@@ -493,7 +493,24 @@ async function addEntry() {
         progressEl.id = "entry-download-progress";
         btn.parentNode.appendChild(progressEl);
     }
-    progressEl.innerHTML = '<div class="download-progress-bar download-progress-pulse"><div class="download-progress-bar-fill"></div></div><div style="font-size:12px;color:#888;margin-top:4px;">Downloading and processing video...</div>';
+    const startTime = Date.now();
+    const timerEl = document.createElement("span");
+    timerEl.id = "download-timer";
+    progressEl.innerHTML = '<div class="download-progress-bar download-progress-pulse"><div class="download-progress-bar-fill"></div></div>';
+    const statusLine = document.createElement("div");
+    statusLine.style.cssText = "font-size:12px;color:#888;margin-top:4px;";
+    statusLine.innerHTML = 'Downloading and processing video... <span id="download-elapsed">0s</span>';
+    progressEl.appendChild(statusLine);
+
+    const timerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const el = document.getElementById("download-elapsed");
+        if (el) {
+            const mins = Math.floor(elapsed / 60);
+            const secs = elapsed % 60;
+            el.textContent = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+        }
+    }, 1000);
 
     try {
         const controller = new AbortController();
@@ -512,20 +529,24 @@ async function addEntry() {
 
         if (!res.ok) {
             const err = await res.json();
-            showToast((err.detail || "Download failed", "error"));
+            showToast(err.detail || "Download failed", "error");
             return;
         }
 
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        showToast(`Download complete (${elapsed}s)`, "success");
         urlInput.value = "";
         notesInput.value = "";
         await loadEntries(currentChapterId);
     } catch (e) {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
         if (e.name === "AbortError") {
-            showToast("Download timed out. The video may still be downloading — try refreshing in a minute.", "warning");
+            showToast(`Download timed out after ${Math.floor(elapsed/60)}m. The video may still be downloading — try refreshing.`, "warning");
         } else {
-            showToast(e.message, "error");
+            showToast("Error: " + e.message, "error");
         }
     } finally {
+        clearInterval(timerInterval);
         btn.disabled = false;
         btn.textContent = "Download & Save";
         if (progressEl) progressEl.innerHTML = "";
