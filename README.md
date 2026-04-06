@@ -24,11 +24,19 @@ A personal media notebook web app for saving videos with rich-text notes — lik
 
 ### Step 2: Download & Run
 
-1. [**Download ZIP**](https://github.com/artificialnouveau/digital_culture_notebook/archive/refs/heads/main.zip) and unzip it
-2. **Mac:** Double-click **`install_and_run.command`** (right-click > Open if blocked)
+1. [**Download ZIP**](https://github.com/artificialnouveau/mediascope/archive/refs/heads/main.zip) and unzip it
+2. **Mac:** Double-click **`install_and_run.command`**
 3. **Windows:** Double-click **`install_and_run.bat`**
 
 The script installs everything (including Homebrew + ffmpeg on Mac) and opens the app. First launch takes a few minutes.
+
+> **Mac: "Cannot verify" warning?** macOS may block the file the first time. To fix:
+> 1. Click **Done** (not Move to Trash)
+> 2. Open **System Settings > Privacy & Security**
+> 3. Scroll down — you'll see the blocked file with an **Open Anyway** button
+> 4. Click it and confirm
+>
+> Alternatively, right-click the file and choose **Open** instead of double-clicking. You only need to do this once.
 
 After first install, use **`MediaScope.command`** (Mac) or **`.bat`** (Windows) for quick launch.
 
