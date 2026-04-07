@@ -10,7 +10,7 @@ from database import get_db, init_db
 from downloader import download_video, download_video_to_folder, trim_video, save_notes_file, MEDIA_DIR, _find_ffmpeg
 from transcriber import transcribe_video
 
-CLOUD_API_URL = "https://clipstudio-cloud.fly.dev"
+CLOUD_API_URL = "https://mediascope-cloud.fly.dev"
 
 app = FastAPI()
 

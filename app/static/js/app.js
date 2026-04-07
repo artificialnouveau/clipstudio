@@ -1,5 +1,5 @@
 const API = "";
-const CLOUD_API_URL = "https://clipstudio-cloud.fly.dev"; // Cloud API server
+const CLOUD_API_URL = "https://mediascope-cloud.fly.dev"; // Cloud API server
 let currentNotebookId = null;
 let currentChapterId = null;
 let quillEditors = {};
