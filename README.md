@@ -42,6 +42,14 @@ The script installs everything (including Homebrew + ffmpeg on Mac) and opens th
 
 After first install, use **`ClipStudio.command`** (Mac) or **`.bat`** (Windows) for quick launch.
 
+> **"This site can't be reached" at localhost:8080?** This means the server isn't running. The app needs to be launched first:
+> 1. Go back to the ClipStudio folder
+> 2. Double-click **`install_and_run.command`** (Mac) or **`.bat`** (Windows)
+> 3. Keep the Terminal window open — closing it stops the server
+> 4. Then go to http://localhost:8080 in your browser
+>
+> The Terminal window **must stay open** while you use the app. If you close it, the server stops and the page won't load.
+
 ---
 
 ## Usage Guide
