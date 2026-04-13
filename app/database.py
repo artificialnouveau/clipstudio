@@ -1,5 +1,6 @@
 import sqlite3
 import os
+from contextlib import contextmanager
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "notebook.db")
 
@@ -9,6 +10,18 @@ def get_db():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
+
+
+@contextmanager
+def db_conn():
+    """Context manager that guarantees the SQLite connection is closed, even
+    on exceptions. Use this in every request handler so failed downloads,
+    transcriptions, and HTTP calls don't leak connections."""
+    conn = get_db()
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def init_db():

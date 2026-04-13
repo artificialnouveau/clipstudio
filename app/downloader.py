@@ -36,18 +36,15 @@ def build_filename(info: dict) -> str:
     ).strip()
     description = (info.get("description") or "").strip()
 
-    # If the title is empty or is literally the video id, it's not useful.
     if not title or title == video_id:
         if description:
             title = description.split("\n", 1)[0][:MAX_FILENAME_LENGTH]
         else:
             title = ""
 
-    # Still nothing? fall back to the id.
     if not title:
         title = video_id or "untitled"
 
-    # Prepend uploader when it's not already reflected in the title.
     if uploader and uploader.lower() not in title.lower():
         name = f"{uploader}_{title}"
     else:
@@ -56,30 +53,24 @@ def build_filename(info: dict) -> str:
     return sanitize_name(name)
 
 
-def download_video(url: str, notebook_name: str, chapter_name: str) -> dict:
-    """Download a video into media/notebook/chapter/ with sanitized filenames."""
-    nb_folder = sanitize_name(notebook_name)
-    ch_folder = sanitize_name(chapter_name)
-    dest_dir = os.path.join(MEDIA_DIR, nb_folder, ch_folder)
-    os.makedirs(dest_dir, exist_ok=True)
+_COOKIE_ATTEMPTS = [
+    {"cookiesfrombrowser": ("chrome",)},
+    {"cookiesfrombrowser": ("firefox",)},
+    {"cookiesfrombrowser": ("safari",)},
+    {},
+]
 
-    base_opts = {
-        "quiet": True,
-        "no_warnings": True,
-    }
 
-    # Try with browser cookies first for age-restricted content
-    cookie_attempts = [
-        {"cookiesfrombrowser": ("chrome",)},
-        {"cookiesfrombrowser": ("firefox",)},
-        {"cookiesfrombrowser": ("safari",)},
-        {},
-    ]
+def _probe_info(url: str, base_opts: dict):
+    """Call yt-dlp's extract_info, trying each cookie source in turn.
 
+    Returns ``(info, working_cookie_opt)``. Raises the last exception if
+    every attempt failed.
+    """
     info = None
     last_error = None
     working_cookie_opt = {}
-    for cookie_opt in cookie_attempts:
+    for cookie_opt in _COOKIE_ATTEMPTS:
         try:
             with yt_dlp.YoutubeDL({**base_opts, **cookie_opt}) as ydl:
                 info = ydl.extract_info(url, download=False)
@@ -88,42 +79,24 @@ def download_video(url: str, notebook_name: str, chapter_name: str) -> dict:
         except Exception as e:
             last_error = e
             continue
-
     if info is None:
         raise last_error
+    return info, working_cookie_opt
 
-    title = info.get("title", "Untitled")
-    safe_title = build_filename(info)
 
-    # Deduplicate filenames
+def _unique_filename(dest_dir: str, safe_title: str) -> str:
+    """Pick a filename under ``dest_dir`` that doesn't collide with an
+    existing ``.mp4``."""
     final_name = safe_title
     counter = 1
     while os.path.exists(os.path.join(dest_dir, f"{final_name}.mp4")):
         final_name = f"{safe_title}_{counter}"
         counter += 1
+    return final_name
 
-    output_template = os.path.join(dest_dir, f"{final_name}.%(ext)s")
 
-    ffmpeg_path = _find_ffmpeg()
-
-    ydl_opts = {
-        **base_opts,
-        **working_cookie_opt,
-        "outtmpl": output_template,
-        "format": "best[ext=mp4]/best",
-        "merge_output_format": "mp4",
-        "writethumbnail": True,
-        "ffmpeg_location": os.path.dirname(ffmpeg_path),
-        "postprocessors": [{
-            "key": "FFmpegVideoConvertor",
-            "preferedformat": "mp4",
-        }],
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
-
-    # Find the downloaded video file
+def _locate_downloaded(dest_dir: str, final_name: str):
+    """Find the downloaded video and (optional) thumbnail matching ``final_name``."""
     video_filename = None
     for f in os.listdir(dest_dir):
         if f.startswith(final_name) and f.endswith(".mp4"):
@@ -135,22 +108,77 @@ def download_video(url: str, notebook_name: str, chapter_name: str) -> dict:
                 video_filename = f
                 break
 
-    # Find thumbnail
     thumbnail_filename = None
     for f in os.listdir(dest_dir):
         if f.startswith(final_name) and f.endswith((".jpg", ".png", ".webp")):
             thumbnail_filename = f
             break
 
+    return video_filename, thumbnail_filename
+
+
+def _download_to_dir(url: str, dest_dir: str, want_thumbnail: bool) -> dict:
+    """Core download pipeline. Picks a filename, runs yt-dlp, and resolves the
+    produced files. Returns a dict with ``title``, ``final_name``,
+    ``video_filename``, and ``thumbnail_filename``.
+    """
+    os.makedirs(dest_dir, exist_ok=True)
+
+    base_opts = {"quiet": True, "no_warnings": True}
+    info, working_cookie_opt = _probe_info(url, base_opts)
+
+    title = info.get("title", "Untitled")
+    safe_title = build_filename(info)
+    final_name = _unique_filename(dest_dir, safe_title)
+
+    output_template = os.path.join(dest_dir, f"{final_name}.%(ext)s")
+    ffmpeg_path = _find_ffmpeg()
+
+    ydl_opts = {
+        **base_opts,
+        **working_cookie_opt,
+        "outtmpl": output_template,
+        "format": "best[ext=mp4]/best",
+        "merge_output_format": "mp4",
+        "ffmpeg_location": os.path.dirname(ffmpeg_path),
+        "postprocessors": [{
+            "key": "FFmpegVideoConvertor",
+            "preferedformat": "mp4",
+        }],
+    }
+    if want_thumbnail:
+        ydl_opts["writethumbnail"] = True
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([url])
+
+    video_filename, thumbnail_filename = _locate_downloaded(dest_dir, final_name)
     if not video_filename:
         raise RuntimeError("Download completed but video file not found")
 
-    # Relative paths from media/ for serving
-    video_path = os.path.join(nb_folder, ch_folder, video_filename)
-    thumbnail_path = os.path.join(nb_folder, ch_folder, thumbnail_filename) if thumbnail_filename else None
-
     return {
         "title": title,
+        "final_name": final_name,
+        "video_filename": video_filename,
+        "thumbnail_filename": thumbnail_filename,
+    }
+
+
+def download_video(url: str, notebook_name: str, chapter_name: str) -> dict:
+    """Download a video into media/notebook/chapter/ with sanitized filenames."""
+    nb_folder = sanitize_name(notebook_name)
+    ch_folder = sanitize_name(chapter_name)
+    dest_dir = os.path.join(MEDIA_DIR, nb_folder, ch_folder)
+
+    result = _download_to_dir(url, dest_dir, want_thumbnail=True)
+
+    video_path = os.path.join(nb_folder, ch_folder, result["video_filename"])
+    thumbnail_path = (
+        os.path.join(nb_folder, ch_folder, result["thumbnail_filename"])
+        if result["thumbnail_filename"] else None
+    )
+    return {
+        "title": result["title"],
         "video_path": video_path,
         "thumbnail_path": thumbnail_path,
     }
@@ -160,82 +188,14 @@ def download_video_to_folder(url: str, folder_name: str) -> dict:
     """Download a video into media/Downloads/folder_name/ with sanitized filenames."""
     safe_folder = sanitize_name(folder_name)
     dest_dir = os.path.join(MEDIA_DIR, "Downloads", safe_folder)
-    os.makedirs(dest_dir, exist_ok=True)
 
-    base_opts = {"quiet": True, "no_warnings": True}
+    result = _download_to_dir(url, dest_dir, want_thumbnail=False)
 
-    cookie_attempts = [
-        {"cookiesfrombrowser": ("chrome",)},
-        {"cookiesfrombrowser": ("firefox",)},
-        {"cookiesfrombrowser": ("safari",)},
-        {},
-    ]
-
-    info = None
-    last_error = None
-    working_cookie_opt = {}
-    for cookie_opt in cookie_attempts:
-        try:
-            with yt_dlp.YoutubeDL({**base_opts, **cookie_opt}) as ydl:
-                info = ydl.extract_info(url, download=False)
-            working_cookie_opt = cookie_opt
-            break
-        except Exception as e:
-            last_error = e
-            continue
-
-    if info is None:
-        raise last_error
-
-    title = info.get("title", "Untitled")
-    safe_title = build_filename(info)
-
-    final_name = safe_title
-    counter = 1
-    while os.path.exists(os.path.join(dest_dir, f"{final_name}.mp4")):
-        final_name = f"{safe_title}_{counter}"
-        counter += 1
-
-    output_template = os.path.join(dest_dir, f"{final_name}.%(ext)s")
-
-    ffmpeg_path = _find_ffmpeg()
-
-    ydl_opts = {
-        **base_opts,
-        **working_cookie_opt,
-        "outtmpl": output_template,
-        "format": "best[ext=mp4]/best",
-        "merge_output_format": "mp4",
-        "ffmpeg_location": os.path.dirname(ffmpeg_path),
-        "postprocessors": [{
-            "key": "FFmpegVideoConvertor",
-            "preferedformat": "mp4",
-        }],
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
-
-    video_filename = None
-    for f in os.listdir(dest_dir):
-        if f.startswith(final_name) and f.endswith(".mp4"):
-            video_filename = f
-            break
-    if not video_filename:
-        for f in os.listdir(dest_dir):
-            if f.startswith(final_name) and not f.endswith((".jpg", ".png", ".webp", ".txt")):
-                video_filename = f
-                break
-
-    if not video_filename:
-        raise RuntimeError("Download completed but video file not found")
-
-    video_path = os.path.join("Downloads", safe_folder, video_filename)
-
+    video_path = os.path.join("Downloads", safe_folder, result["video_filename"])
     return {
-        "title": title,
+        "title": result["title"],
         "video_path": video_path,
-        "filename": video_filename,
+        "filename": result["video_filename"],
     }
 
 
@@ -263,14 +223,12 @@ def trim_video(video_path: str, start: str, end: str) -> str:
 
     base, ext = os.path.splitext(full_path)
 
-    # Find a unique filename so we never overwrite existing trims
     counter = 1
     trimmed_path = f"{base}_trim{counter}{ext}"
     while os.path.exists(trimmed_path):
         counter += 1
         trimmed_path = f"{base}_trim{counter}{ext}"
 
-    # Build command: -ss before -i for fast seeking
     cmd = [ffmpeg, "-y"]
     if start:
         cmd += ["-ss", start]
@@ -281,7 +239,6 @@ def trim_video(video_path: str, start: str, end: str) -> str:
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        # Fallback: re-encode if stream copy fails
         cmd2 = [ffmpeg, "-y"]
         if start:
             cmd2 += ["-ss", start]
@@ -293,7 +250,6 @@ def trim_video(video_path: str, start: str, end: str) -> str:
         if result2.returncode != 0:
             raise RuntimeError(f"ffmpeg failed: {result2.stderr}")
 
-    # Return the relative path to the trimmed file (original is untouched)
     rel_base, rel_ext = os.path.splitext(video_path)
     return f"{rel_base}_trim{counter}{rel_ext}"
 

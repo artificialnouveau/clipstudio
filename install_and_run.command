@@ -204,7 +204,7 @@ trap cleanup EXIT INT TERM
 
 cd app
 # Run uvicorn; if it exits non-zero, surface a hint instead of vanishing
-if ! python -m uvicorn main:app --host 0.0.0.0 --port $PORT; then
+if ! python -m uvicorn main:app --host 127.0.0.1 --port $PORT; then
     echo ""
     echo "ERROR: the ClipStudio server crashed or failed to start."
     echo ""

@@ -252,7 +252,11 @@ async function loadChapterNotes(chapterId) {
             placeholder: "Write chapter notes here...",
         });
     }
-    chapterNotesQuill.root.innerHTML = chapter.notes || "";
+    // Load notes through Quill's clipboard so script/onerror payloads stored
+    // in the DB can't execute in the browser. Quill 1.x takes the HTML string
+    // positionally.
+    const chapterDelta = chapterNotesQuill.clipboard.convert(chapter.notes || "");
+    chapterNotesQuill.setContents(chapterDelta, "silent");
     document.getElementById("chapter-notes-status").textContent = "";
 
     // Show folder path
@@ -324,7 +328,7 @@ function createEntryCard(entry) {
     card.innerHTML = `
         <div class="entry-inner">
             <div class="entry-video">
-                ${videoSrc ? `<video controls preload="metadata"><source src="${videoSrc}" type="video/mp4"></video>` : '<p style="color:#666">No video</p>'}
+                ${videoSrc ? `<video controls preload="metadata"><source src="${encodeURI(videoSrc)}" type="video/mp4"></video>` : '<p style="color:#666">No video</p>'}
             </div>
             <div class="entry-notes">
                 <div class="entry-header">
@@ -338,15 +342,15 @@ function createEntryCard(entry) {
                         <input type="text" id="entry-trim-start-${entry.id}" placeholder="00:00:00" style="width:100px;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;font-family:monospace;">
                         <label style="font-size:12px;color:#666;">End:</label>
                         <input type="text" id="entry-trim-end-${entry.id}" placeholder="00:01:30" style="width:100px;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;font-family:monospace;">
-                        <button class="btn btn-secondary" onclick="trimEntryVideo(${entry.id}, '${entry.video_path}')">Trim</button>
+                        <button class="btn btn-secondary" data-entry-id="${entry.id}" data-video-path="${escapeHtml(entry.video_path)}" onclick="trimEntryVideoFromBtn(this)">Trim</button>
                     </div>
                 </div>` : ""}
-                <div id="${editorId}">${entry.notes || ""}</div>
+                <div id="${editorId}"></div>
                 <div class="entry-actions">
                     <button class="btn btn-primary" onclick="saveNotes(${entry.id})">Save Notes</button>
                     <button class="btn btn-secondary" id="transcribe-btn-${entry.id}" onclick="transcribeEntry(${entry.id})">Transcribe</button>
                     <button class="btn btn-secondary" id="diarize-btn-${entry.id}" onclick="transcribeEntry(${entry.id}, true)">Transcribe with Speakers</button>
-                    ${entry.video_path ? `<button class="btn btn-secondary" onclick="openSceneSplitter(${entry.id}, '${entry.video_path}')">Split Scenes</button>` : ""}
+                    ${entry.video_path ? `<button class="btn btn-secondary" data-entry-id="${entry.id}" data-video-path="${escapeHtml(entry.video_path)}" onclick="openSceneSplitterFromBtn(this)">Split Scenes</button>` : ""}
                     <button class="btn btn-danger" onclick="deleteEntry(${entry.id})">Delete</button>
                 </div>
                 ${cloudApiKey ? `<div class="entry-actions" style="margin-top:6px;">
@@ -386,6 +390,11 @@ function createEntryCard(entry) {
                     ],
                 },
             });
+            // Convert stored notes through Quill's clipboard so only whitelisted
+            // formats survive; scripts, event handlers, and iframes are dropped.
+            // Quill 1.x takes the HTML positionally, not as an options object.
+            const delta = quill.clipboard.convert(entry.notes || "");
+            quill.setContents(delta, "silent");
             quillEditors[entry.id] = quill;
         }
     });
@@ -663,12 +672,12 @@ async function doSearch(q) {
         card.innerHTML = `
             <div class="entry-inner">
                 <div class="entry-video">
-                    ${videoSrc ? `<video controls preload="metadata"><source src="${videoSrc}" type="video/mp4"></video>` : ""}
+                    ${videoSrc ? `<video controls preload="metadata"><source src="${encodeURI(videoSrc)}" type="video/mp4"></video>` : ""}
                 </div>
                 <div class="entry-notes" style="padding:20px">
                     <div class="entry-header"><h4>${escapeHtml(entry.video_title || "Untitled")}</h4></div>
                     <div class="entry-source">Chapter: ${escapeHtml(entry.chapter_name)}</div>
-                    <div>${entry.notes || "<em>No notes</em>"}</div>
+                    <div>${entry.notes ? escapeHtml(entry.notes.replace(/<[^>]+>/g, " ")).slice(0, 500) : "<em>No notes</em>"}</div>
                 </div>
             </div>
         `;
@@ -754,24 +763,24 @@ async function openBulkFolder(folderName) {
             <div class="bulk-video-inner">
                 <div class="bulk-video-player">
                     <video controls preload="metadata">
-                        <source src="/media/${v.video_path}" type="video/mp4">
+                        <source src="/media/${encodeURI(v.video_path)}" type="video/mp4">
                     </video>
                 </div>
                 <div class="bulk-video-info">
                     <h4>${escapeHtml(v.title)}</h4>
                     <div class="trim-row">
                         <label>Start:</label>
-                        <input type="text" id="trim-start-${idx}" placeholder="00:00:00" data-path="${v.video_path}">
+                        <input type="text" id="trim-start-${idx}" placeholder="00:00:00" data-path="${escapeHtml(v.video_path)}">
                         <label>End:</label>
                         <input type="text" id="trim-end-${idx}" placeholder="00:01:30">
-                        <button class="btn btn-secondary" onclick="trimBulkVideo(${idx}, '${v.video_path}')">Trim</button>
+                        <button class="btn btn-secondary" data-idx="${idx}" data-video-path="${escapeHtml(v.video_path)}" onclick="trimBulkVideoFromBtn(this)">Trim</button>
                     </div>
                     ${v.has_transcript
                         ? `<div class="transcript-box">${escapeHtml(v.transcript)}</div>`
                         : `<div class="transcript-box" id="transcript-${idx}" style="display:none;"></div>`
                     }
                     <div class="bulk-video-actions">
-                        ${!v.has_transcript ? `<button class="btn btn-secondary" id="bulk-transcribe-${idx}" onclick="transcribeBulkVideo(${idx}, '${v.video_path}')">Transcribe</button>` : '<span style="font-size:12px;color:#888;">Transcribed</span>'}
+                        ${!v.has_transcript ? `<button class="btn btn-secondary" id="bulk-transcribe-${idx}" data-idx="${idx}" data-video-path="${escapeHtml(v.video_path)}" onclick="transcribeBulkVideoFromBtn(this)">Transcribe</button>` : '<span style="font-size:12px;color:#888;">Transcribed</span>'}
                     </div>
                 </div>
             </div>
@@ -971,6 +980,48 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// --- Click handler trampolines ---
+// Inline onclick attributes interpolate strings into an HTML/JS context, which
+// is an XSS foothold if any interpolated value contains a quote. Instead, we
+// stash the untrusted values on data-* attributes (safe because they go
+// through escapeHtml) and read them back here. These functions exist purely
+// so the onclick="..." attributes in the rendered HTML stay value-free.
+
+function trimEntryVideoFromBtn(btn) {
+    trimEntryVideo(parseInt(btn.dataset.entryId, 10), btn.dataset.videoPath);
+}
+function openSceneSplitterFromBtn(btn) {
+    openSceneSplitter(parseInt(btn.dataset.entryId, 10), btn.dataset.videoPath);
+}
+function trimBulkVideoFromBtn(btn) {
+    trimBulkVideo(parseInt(btn.dataset.idx, 10), btn.dataset.videoPath);
+}
+function transcribeBulkVideoFromBtn(btn) {
+    transcribeBulkVideo(parseInt(btn.dataset.idx, 10), btn.dataset.videoPath);
+}
+function runSceneDetectionFromBtn(btn) {
+    runSceneDetection(btn.dataset.videoPath, parseInt(btn.dataset.entryId, 10));
+}
+function saveSingleSceneFromBtn(btn) {
+    saveSingleScene(parseInt(btn.dataset.entryId, 10), btn.dataset.videoPath, parseInt(btn.dataset.sceneIndex, 10));
+}
+function saveSelectedScenesFromBtn(btn) {
+    saveSelectedScenes(parseInt(btn.dataset.entryId, 10), btn.dataset.videoPath);
+}
+function saveAllScenesFromBtn(btn) {
+    saveAllScenes(parseInt(btn.dataset.entryId, 10), btn.dataset.videoPath);
+}
+function ragTrimAndSaveFromBtn(ev, btn) {
+    if (ev) ev.stopPropagation();
+    ragTrimAndSave(
+        parseInt(btn.dataset.entryId, 10),
+        btn.dataset.videoPath,
+        btn.dataset.start,
+        btn.dataset.end,
+        btn,
+    );
+}
+
 function showToast(message, type = "info") {
     let container = document.getElementById("toast-container");
     if (!container) {
@@ -1059,7 +1110,7 @@ async function openSceneSplitter(entryId, videoPath) {
             </div>
             <div class="scene-modal-body">
                 <video id="scene-video" controls preload="auto" style="width:100%;max-height:300px;background:#000;border-radius:6px;">
-                    <source src="/media/${videoPath}" type="video/mp4">
+                    <source src="/media/${encodeURI(videoPath)}" type="video/mp4">
                 </video>
                 <div style="display:flex;gap:12px;align-items:center;margin-top:12px;flex-wrap:wrap;">
                     <label style="font-size:13px;color:#555;">Sensitivity:
@@ -1075,7 +1126,7 @@ async function openSceneSplitter(entryId, videoPath) {
                     </label>
                 </div>
                 <div style="margin-top:12px;">
-                    <button class="btn btn-primary" id="scene-detect-btn" onclick="runSceneDetection('${videoPath}', ${entryId})">Detect Scenes</button>
+                    <button class="btn btn-primary" id="scene-detect-btn" data-video-path="${escapeHtml(videoPath)}" data-entry-id="${entryId}" onclick="runSceneDetectionFromBtn(this)">Detect Scenes</button>
                 </div>
                 <div id="scene-progress" style="display:none;margin-top:12px;">
                     <div style="background:#e0e0e0;border-radius:4px;height:8px;overflow:hidden;">
@@ -1205,13 +1256,13 @@ async function runSceneDetection(videoPath, entryId) {
                     <span style="font-size:12px;color:#666;">${formatTime(s.start)} \u2013 ${formatTime(s.end)} (${formatTime(s.end - s.start)})</span>
                     ${sceneText ? `<div style="font-size:11px;color:#888;margin-top:4px;line-height:1.4;max-height:40px;overflow:hidden;">${escapeHtml(sceneText)}</div>` : ""}
                 </div>
-                <button class="btn btn-secondary" style="font-size:11px;padding:4px 10px;flex-shrink:0;" onclick="saveSingleScene(${entryId}, '${videoPath}', ${i})">Save</button>
+                <button class="btn btn-secondary" style="font-size:11px;padding:4px 10px;flex-shrink:0;" data-entry-id="${entryId}" data-video-path="${escapeHtml(videoPath)}" data-scene-index="${i}" onclick="saveSingleSceneFromBtn(this)">Save</button>
             </div>`;
     });
     html += '</div>';
     html += `<div style="display:flex;gap:8px;margin-top:12px;">
-        <button class="btn btn-primary" onclick="saveSelectedScenes(${entryId}, '${videoPath}')">Save Selected</button>
-        <button class="btn btn-secondary" onclick="saveAllScenes(${entryId}, '${videoPath}')">Save All Scenes</button>
+        <button class="btn btn-primary" data-entry-id="${entryId}" data-video-path="${escapeHtml(videoPath)}" onclick="saveSelectedScenesFromBtn(this)">Save Selected</button>
+        <button class="btn btn-secondary" data-entry-id="${entryId}" data-video-path="${escapeHtml(videoPath)}" onclick="saveAllScenesFromBtn(this)">Save All Scenes</button>
     </div>`;
 
     resultsDiv.innerHTML = html;
@@ -1488,7 +1539,7 @@ async function ragSearch() {
             <div style="font-size:12px;color:#666;line-height:1.4;max-height:60px;overflow:hidden;">${escapeHtml(r.text.substring(0, 300))}</div>
             <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
                 <span style="font-size:11px;color:#999;">${r.metadata.type}</span>
-                ${hasTime && videoPath ? `<button class="btn btn-secondary" style="font-size:11px;padding:3px 8px;" onclick="event.stopPropagation(); ragTrimAndSave(${entryId}, '${videoPath}', '${formatTime(r.metadata.start)}', '${formatTime(r.metadata.end)}', this)">Trim &amp; Save</button>` : ""}
+                ${hasTime && videoPath ? `<button class="btn btn-secondary" style="font-size:11px;padding:3px 8px;" data-entry-id="${entryId}" data-video-path="${escapeHtml(videoPath)}" data-start="${escapeHtml(formatTime(r.metadata.start))}" data-end="${escapeHtml(formatTime(r.metadata.end))}" onclick="ragTrimAndSaveFromBtn(event, this)">Trim &amp; Save</button>` : ""}
             </div>
         `;
         if (vid && vid.video_path) {
@@ -1607,7 +1658,7 @@ async function ragSearchBulk() {
             </div>
             ${timeLabel ? `<div style="font-size:11px;color:#7c3aed;margin-bottom:4px;">${timeLabel}</div>` : ""}
             <div style="font-size:12px;color:#666;line-height:1.4;max-height:60px;overflow:hidden;">${escapeHtml(r.text.substring(0, 300))}</div>
-            ${hasTime && videoPath ? `<div style="margin-top:6px;"><button class="btn btn-secondary" style="font-size:11px;padding:3px 8px;" onclick="ragTrimAndSave(0, '${videoPath}', '${formatTime(r.metadata.start)}', '${formatTime(r.metadata.end)}', this)">Trim &amp; Save</button></div>` : ""}
+            ${hasTime && videoPath ? `<div style="margin-top:6px;"><button class="btn btn-secondary" style="font-size:11px;padding:3px 8px;" data-entry-id="0" data-video-path="${escapeHtml(videoPath)}" data-start="${escapeHtml(formatTime(r.metadata.start))}" data-end="${escapeHtml(formatTime(r.metadata.end))}" onclick="ragTrimAndSaveFromBtn(event, this)">Trim &amp; Save</button></div>` : ""}
         `;
         resultsEl.appendChild(card);
     });

@@ -1,8 +1,11 @@
 import os
+import logging
 import tempfile
 import subprocess
 import numpy as np
 from faster_whisper import WhisperModel
+
+logger = logging.getLogger(__name__)
 
 MEDIA_DIR = os.path.join(os.path.dirname(__file__), "media")
 
@@ -76,11 +79,13 @@ def transcribe_video(video_path: str, diarize: bool = False) -> str:
             for s in whisper_segments
         )
 
-    # Speaker diarization using resemblyzer
+    # Speaker diarization using resemblyzer. If it fails (missing model,
+    # clustering error, too-short audio, etc.) log the reason so the fallback
+    # isn't silent, then return plain timestamped transcription.
     try:
         return _diarize(full_path, whisper_segments)
-    except Exception:
-        # Fall back to regular transcription if diarization fails
+    except Exception as e:
+        logger.warning("Diarization failed, falling back to plain transcript: %s", e, exc_info=True)
         return "\n".join(
             f"[{_format_timestamp(s['start'])} - {_format_timestamp(s['end'])}] {s['text']}"
             for s in whisper_segments
